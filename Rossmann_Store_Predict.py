@@ -53,3 +53,23 @@ from sklearn.metrics import r2_score
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
+
+
+#reading in the Rossmann Store data set
+# cleaned files - is post feature engineering
+# shapped files - the features have been transformed and scaled
+
+data_file_path = '/Users/lynnpowell/Documents/DS_Projects/Data_Files/Rossmann_Store_Sales_Data/'
+
+train = pd.read_csv(data_file_path+'cleaned_train.csv')
+test = pd.read_csv(data_file_path+'cleaned_test.csv')
+train_shape = pd.read_csv(data_file_path+'shaped_train.csv')
+test_shape = pd.read_csv(data_file_path+'shaped_test.csv')
+
+
+
+
+
+
+
+
