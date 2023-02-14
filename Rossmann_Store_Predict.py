@@ -64,17 +64,19 @@ from mlxtend.feature_selection import SequentialFeatureSelector as sfs
 #from sklearn.ensemble import ExtraTreesClassifier
 #from skfeature.function.similarity_based import fisher_score
 
-from sklearn.linear_model import LinearRegression
-from sklearn.model_selection import cross_val_score
-from sklearn.linear_model import Ridge, Lasso
 from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import r2_score
-from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.neighbors import KNeighborsClassifier
-
+from sklearn.model_selection import cross_val_score
 from sklearn.metrics import mean_squared_error
+
+from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import Ridge, Lasso
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.svm import SVR
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.preprocessing import PolynomialFeatures
 
 
 #reading in the Rossmann Store data set
@@ -471,18 +473,20 @@ def model_eval(df,model,params):
     else:
         start_time = time.time()
         gs_cv = GridSearchCV(model, params, scoring='neg_root_mean_squared_error', cv=7, return_train_score=False)
-        gs_cv.fit(X,y)
+        gs_cv.fit(X_train,y_train)
     
         #testing model with best parameters
         y_predict = gs_cv.predict(X_test)
         rmse_score = math.sqrt(mean_squared_error(y_test, y_predict))
         model_time = time.time() - start_time
+        
+        print(gs_cv.best_estimator_)
     
         return [gs_cv.best_params_, gs_cv.best_score_, rmse_score, model_time]
     
 results = []
 
-# Linear Regression
+#### Linear Regression ####
 linr = LinearRegression()
 linr_result = model_eval(train_shape_final, linr, 'None')
 results.append({
@@ -492,17 +496,151 @@ results.append({
     'ML_Score':linr_result[2],
     'Test_Time':linr_result[3]})
 
+#### Lasso Regression ####
+lassor = Lasso()
+lasso_hyperpar = {'alpha': [0.01, 0.05, 0.1, 0.5, 1, 5, 10, 100]}
+lasso_result = model_eval(train_shape_final, lassor, lasso_hyperpar)
+results.append({
+    'model':'Lasso Regression',
+    'Best_Params':lasso_result[0],
+    'CV_Score':lasso_result[1],
+    'ML_Score':lasso_result[2],
+    'Test_Time':lasso_result[3]})
+
+#### Ridge Regression ####
+ridger = Ridge()
+ridge_hyperpar = {'alpha': [0.01, 0.05, 0.1, 0.5, 1, 5, 10, 100]}
+ridge_result = model_eval(train_shape_final, ridger, ridge_hyperpar)
+results.append({
+    'model':'Ridge Regression',
+    'Best_Params':ridge_result[0],
+    'CV_Score':ridge_result[1],
+    'ML_Score':ridge_result[2],
+    'Test_Time':ridge_result[3]})
+
+
+#### Support Vector Macine Regressor ####
+svm_r = SVR()
+svm_hyperpar = {
+    'kernel':['rbf'],
+    'degree':[1,3,5],
+    'C':[0.01,0.1,1,10]
+}
+svm_result = model_eval(train_shape_final, svm_r, 'None')
+#svm_result = model_eval(train_shape_final, svm_r, svm_hyperpar)
+results.append({
+    'model':'SVM Regression',
+    'Best_Params':svm_result[0],
+    'CV_Score':svm_result[1],
+    'ML_Score':svm_result[2],
+    'Test_Time':svm_result[3]})
+
 print(results)
 
-rfc_hyperpar = {
-    'criterion' : ['entropy', 'gini'],
-    'max_depth' : [5, 10],
-    'max_features' : ['log2', 'sqrt'],
-    'min_samples_leaf' : [1,5],
-    'min_samples_split' : [3,5],
-    'n_estimators' : [6,9]
+#### KNN Regressor ####
+knn_r = KNeighborsRegressor
+knn_hyperpar = {
+    'n_neighbors':[4,5,6],
+    'algorithm':['ball_tree', 'brute'],
+    'leaf_size':[20,30,40]
 }
-rfc = RandomForestClassifier(random_state=7)
+knn_result = model_eval(train_shape_final, knn_r, 'None')
+#knn_result = model_eval(train_shape_final, knn_r, knn_hyperpar)
+results.append({
+    'model':'KNN Regression',
+    'Best_Params':knn_result[0],
+    'CV_Score':knn_result[1],
+    'ML_Score':knn_result[2],
+    'Test_Time':knn_result[3]})
+
+
+#### Gausian Regressor ####
+gaus = GaussianProcessRegressor(random_state=7)
+gaus_hyperpar = {
+    'alpha': [0.001, 0.01, 0.1, 1, 10]
+}
+gaus_result = model_eval(train_shape_final, gaus, gaus_hyperpar)
+results.append({
+    'model':'Gausian Regression',
+    'Best_Params':gaus_result[0],
+    'CV_Score':gaus_result[1],
+    'ML_Score':gaus_result[2],
+    'Test_Time':gaus_result[3]})
+
+#https://medium.com/pythoneers/polynomial-regression-in-python-using-sci-kit-b53db19412d3
+#### Polynomial Regressor ####
+poly = PolynomialFeatures(include_bias=False)
+poly_hyperpar = {
+    'degree':[1,3,5]
+}
+poly_result = model_eval(train_shape_final, poly, poly_hyperpar)
+results.append({
+    'model':'Polynomial Regression',
+    'Best_Params':poly_result[0],
+    'CV_Score':poly_result[1],
+    'ML_Score':poly_result[2],
+    'Test_Time':poly_result[3]})
+
+
+#### Decision Tree Regressor ####
+dtr = DecisionTreeRegressor()
+dtr_hyperpar = {"splitter":["best","random"],
+            "max_depth" : [1,3,5,7,9,11,12],
+           "min_samples_leaf":[1,2,3,4,5,6,7,8,9,10],
+           "min_weight_fraction_leaf":[0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9],
+           "max_features":["auto","log2","sqrt",None],
+           "max_leaf_nodes":[None,10,20,30,40,50,60,70,80,90] }
+dtr_result = model_eval(train_final, dtr, dtr_hyperpar)
+results.append({
+    'model':'Decision tree Regression',
+    'Best_Params':dtr_result[0],
+    'CV_Score':dtr_result[1],
+    'ML_Score':dtr_result[2],
+    'Test_Time':dtr_result[3]})
+
+#### Random Forest Regressor ####
+rfr = RandomForestRegressor(random_state=7)
+rfr_hyperpar = {
+    'criterion' : ['squared_error'],
+    'max_depth' : [5,9,12,15],
+    'max_features' : ['log2', 'sqrt'],
+    'min_samples_leaf' : [3,6,9],
+    'min_samples_split' : [3,6,9],
+    'n_estimators' : [3,6,9,12]
+}
+rfr_result = model_eval(train_final, rfr, rfr_hyperpar)
+results.append({
+    'model':'Random Forest Regression',
+    'Best_Params':rfr_result[0],
+    'CV_Score':rfr_result[1],
+    'ML_Score':rfr_result[2],
+    'Test_Time':rfr_result[3]})
+
+####
+#### Boost and Bagging Techniques for Regression Projects ####
+####
+
+
+
+
+#Saving results as CVS file
+model_results_df = pd.DataFrame(results)
+model_results_df.to_csv(data_file_path+'Model_Eval_Results.csv', index=False)
+
+
+
+# Model with the best results
+
+
+
+
+
+#Formating results for Kaggle Submission
+test_store_ids = test['Stores']
+submission = {'Stores': test_store_ids,
+                 'Sales': model_predictions}
+submission_df = pd.DataFrame(submission)
+submission_df.to_csv('Rossman_Submission_1.csv',index=False)
 
 
 
