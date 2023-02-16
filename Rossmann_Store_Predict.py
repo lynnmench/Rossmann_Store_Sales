@@ -77,7 +77,10 @@ from sklearn.svm import SVR
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.preprocessing import PolynomialFeatures
-
+from sklearn.ensemble import BaggingRegressor
+from sklearn.ensemble import AdaBoostRegressor
+from sklearn.ensemble import GradientBoostingRegressor
+from xgboost import XGBRegressor
 
 #reading in the Rossmann Store data set
 # cleaned files - is post feature engineering
@@ -482,7 +485,7 @@ def model_eval(df,model,params):
         
         print(gs_cv.best_estimator_)
     
-        return [gs_cv.best_params_, gs_cv.best_score_, rmse_score, model_time]
+        return [gs_cv.best_params_, abs(gs_cv.best_score_), rmse_score, model_time]
     
 results = []
 
@@ -519,7 +522,88 @@ results.append({
     'Test_Time':ridge_result[3]})
 
 
+
+#### Bagging Regressor
+# runs quickly iwth just 1 max feature
+bag_r = BaggingRegressor(random_state=11)
+bagr_hyperpar = {
+    'n_estimators' : [50, 250, 500], 
+    'max_features' : [3, 5, 7],
+    
+}
+#bagr_result = model_eval(train_shape_final, bag_r, 'None')
+bagr_result = model_eval(train_shape_final, bag_r, bagr_hyperpar)
+results.append({
+    'model':'Bagging Regressor',
+    'Best_Params':bagr_result[0],
+    'CV_Score':bagr_result[1],
+    'ML_Score':bagr_result[2],
+    'Test_Time':bagr_result[3]})
+
+#### Ada Boost Regressor
+ada_r = AdaBoostRegressor(random_state=11)
+adar_hyperpar = {
+    'n_estimators' : [50, 250, 500],
+    'learning_rate' : [0.1, 1, 10]
+}
+#adar_result = model_eval(train_final, ada_r, 'None')
+adar_result = model_eval(train_final, ada_r, adar_hyperpar)
+results.append({
+    'model':'Ada Boost Regressor',
+    'Best_Params':adar_result[0],
+    'CV_Score':adar_result[1],
+    'ML_Score':adar_result[2],
+    'Test_Time':adar_result[3]})
+
+
+#### XGBoost Regressor
+xgb_r = XGBRegressor(random_state=11)
+xgbr_hyperpar = {
+    "colsample_bytree":[1.0],
+    "min_child_weight":[1.0,1.2],
+    'max_depth': [3,4,6],
+    'n_estimators' : [50, 250, 500],
+    'learing_rate' : [0.1, 1, 10]
+}
+#xgbr_result = model_eval(train_final, xgb_r, 'None')
+xgbr_result = model_eval(train_final, xgb_r, xgbr_hyperpar)
+results.append({
+    'model':'XGBoost Regressor',
+    'Best_Params':xgbr_result[0],
+    'CV_Score':xgbr_result[1],
+    'ML_Score':xgbr_result[2],
+    'Test_Time':xgbr_result[3]})
+
+
+
+print(results)
+
+
+#Saving results as CVS file
+model_results_df = pd.DataFrame(results)
+model_results_df.to_csv(data_file_path+'Model_Eval_Results.csv', index=False)
+
+
+
+# Model with the best results
+
+
+
+
+
+#Formating results for Kaggle Submission
+test_store_ids = test['Stores']
+submission = {'Stores': test_store_ids,
+                 'Sales': model_predictions}
+submission_df = pd.DataFrame(submission)
+submission_df.to_csv('Rossman_Submission_1.csv',index=False)
+
+
+
+
+####### Additional Models to try #######
 #### Support Vector Macine Regressor ####
+# this method takes way to long to run -> stopped after 3 hrs (without hyperpar)
 svm_r = SVR()
 svm_hyperpar = {
     'kernel':['rbf'],
@@ -534,8 +618,6 @@ results.append({
     'CV_Score':svm_result[1],
     'ML_Score':svm_result[2],
     'Test_Time':svm_result[3]})
-
-print(results)
 
 #### KNN Regressor ####
 knn_r = KNeighborsRegressor
@@ -555,11 +637,13 @@ results.append({
 
 
 #### Gausian Regressor ####
+# This method restarted kernel
 gaus = GaussianProcessRegressor(random_state=7)
 gaus_hyperpar = {
     'alpha': [0.001, 0.01, 0.1, 1, 10]
 }
-gaus_result = model_eval(train_shape_final, gaus, gaus_hyperpar)
+gaus_result = model_eval(train_shape_final, gaus, 'None')
+#gaus_result = model_eval(train_shape_final, gaus, gaus_hyperpar)
 results.append({
     'model':'Gausian Regression',
     'Best_Params':gaus_result[0],
@@ -600,6 +684,7 @@ results.append({
 
 #### Random Forest Regressor ####
 rfr = RandomForestRegressor(random_state=7)
+"""
 rfr_hyperpar = {
     'criterion' : ['squared_error'],
     'max_depth' : [5,9,12,15],
@@ -607,6 +692,12 @@ rfr_hyperpar = {
     'min_samples_leaf' : [3,6,9],
     'min_samples_split' : [3,6,9],
     'n_estimators' : [3,6,9,12]
+}
+"""
+rfr_hyperpar = {
+    'criterion' : ['squared_error'],
+    'max_depth' : [20],
+    'n_estimators' : [100]
 }
 rfr_result = model_eval(train_final, rfr, rfr_hyperpar)
 results.append({
@@ -616,31 +707,7 @@ results.append({
     'ML_Score':rfr_result[2],
     'Test_Time':rfr_result[3]})
 
-####
-#### Boost and Bagging Techniques for Regression Projects ####
-####
 
-
-
-
-#Saving results as CVS file
-model_results_df = pd.DataFrame(results)
-model_results_df.to_csv(data_file_path+'Model_Eval_Results.csv', index=False)
-
-
-
-# Model with the best results
-
-
-
-
-
-#Formating results for Kaggle Submission
-test_store_ids = test['Stores']
-submission = {'Stores': test_store_ids,
-                 'Sales': model_predictions}
-submission_df = pd.DataFrame(submission)
-submission_df.to_csv('Rossman_Submission_1.csv',index=False)
 
 
 
