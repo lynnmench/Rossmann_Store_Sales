@@ -67,6 +67,7 @@ from mlxtend.feature_selection import SequentialFeatureSelector as sfs
 from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import KFold
 from sklearn.metrics import mean_squared_error
 
 from sklearn.linear_model import LinearRegression
@@ -527,8 +528,8 @@ results.append({
 # runs quickly iwth just 1 max feature
 bag_r = BaggingRegressor(random_state=11)
 bagr_hyperpar = {
-    'n_estimators' : [50, 250, 500], 
-    'max_features' : [3, 5, 7],
+    'n_estimators' : [20, 40, 60, 100], 
+    'max_features' : [5, 7, 8],
     
 }
 #bagr_result = model_eval(train_shape_final, bag_r, 'None')
@@ -543,13 +544,13 @@ results.append({
 #### Ada Boost Regressor
 ada_r = AdaBoostRegressor(random_state=11)
 adar_hyperpar = {
-    'n_estimators' : [50, 250, 500],
-    'learning_rate' : [0.1, 1, 10]
+    'n_estimators' : [1, 5, 10, 20, 30],
+    'learning_rate' : [0.01, 0.05, 0.1, 0.2]
 }
 #adar_result = model_eval(train_final, ada_r, 'None')
 adar_result = model_eval(train_final, ada_r, adar_hyperpar)
 results.append({
-    'model':'Ada Boost Regressor',
+    'model':'Ada Boost Regressor_2',
     'Best_Params':adar_result[0],
     'CV_Score':adar_result[1],
     'ML_Score':adar_result[2],
@@ -560,15 +561,15 @@ results.append({
 xgb_r = XGBRegressor(random_state=11)
 xgbr_hyperpar = {
     "colsample_bytree":[1.0],
-    "min_child_weight":[1.0,1.2],
+    #"min_child_weight":[1.0, 1.2],
     'max_depth': [3,4,6],
-    'n_estimators' : [50, 250, 500],
-    'learing_rate' : [0.1, 1, 10]
+    'n_estimators' : [100, 500],
+    'learing_rate' : [0.01, 0.05, 0.1, 0.2,0.3]
 }
 #xgbr_result = model_eval(train_final, xgb_r, 'None')
 xgbr_result = model_eval(train_final, xgb_r, xgbr_hyperpar)
 results.append({
-    'model':'XGBoost Regressor',
+    'model':'XGBoost Regressor_2',
     'Best_Params':xgbr_result[0],
     'CV_Score':xgbr_result[1],
     'ML_Score':xgbr_result[2],
@@ -585,19 +586,97 @@ model_results_df.to_csv(data_file_path+'Model_Eval_Results.csv', index=False)
 
 
 
-# Model with the best results
+##### Model with the best results - Ada Boost
+
+X = train_final.drop('Sales', axis=1)
+y = train_final['Sales']
+
+#train test split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=19)
+
+ada_r = AdaBoostRegressor(n_estimators=5, learning_rate=0.01, random_state=17)
+
+start_time = time.time()
+ada_r.fit(X_train, y_train)
+# k-fold cross validataion 
+kfold = KFold(n_splits=11, shuffle=True)
+kf_cv_scores = cross_val_score(ada_r, X_train, y_train, cv=kfold )
+print("K-fold CV average score: %.2f" % kf_cv_scores.mean())
+
+# prediction
+y_predict = ada_r.predict(X_test)
+rmse_score = math.sqrt(mean_squared_error(y_test, y_predict))
+model_time = time.time() - start_time
+print("RMSE: %.2f" % rmse_score)
+print("Model Time: %.2f" % model_time)
+
+# plotting the result
+x_ax = range(len(y_test))
+plt.scatter(x_ax, y_test, s=5, color="blue", label="test_value")
+plt.plot(x_ax, y_predict, lw=0.8, color="red", label="predicted")
+plt.legend()
+plt.show()
 
 
+#### Bagging Regression
+X = train_shape_final.drop('Sales', axis=1)
+y = train_shape_final['Sales']
 
+#train test split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=19)
+
+
+bag_r = BaggingRegressor(random_state=17, max_features=8, n_estimators=100)
+
+start_time = time.time()
+bag_r.fit(X_train, y_train)
+# k-fold cross validataion 
+kfold = KFold(n_splits=11, shuffle=True)
+kf_cv_scores = cross_val_score(bag_r, X_train, y_train, cv=kfold )
+print("K-fold CV average score: %.4f" % kf_cv_scores.mean())
+
+# prediction
+y_predict = bag_r.predict(X_test)
+rmse_score = math.sqrt(mean_squared_error(y_test, y_predict))
+model_time = time.time() - start_time
+print("RMSE: %.2f" % rmse_score)
+print("Model Time: %.2f" % model_time)
+
+# plotting the result
+x_ax = range(len(y_test))
+plt.scatter(x_ax, y_test, s=5, color="blue", label="test_value")
+plt.plot(x_ax, y_predict, lw=0.8, color="red", label="predicted")
+plt.legend()
+plt.show()
+
+
+# Best model was Bagging with a 0.91 accuracy score
+# prediting sales data from test data file to submission
+final_feat = ['Sales','Store','Open','Promo','DayOfWeek',
+                  'Assortment','StoreType_a','StoreType_d','StateHoliday_0','CompetitionDistance']
+
+train_final = train_shape[final_feat]
+test_final = test_shape[final_feat].drop('Sales', axis=1)
+
+X = train_final.drop('Sales', axis=1)
+y = train_final['Sales']
+
+bagr = BaggingRegressor(random_state=17, max_features=8, n_estimators=100)
+bagr.fit(X, y)
+bagr_predict = bagr.predict(test_final)
 
 
 #Formating results for Kaggle Submission
-test_store_ids = test['Stores']
-submission = {'Stores': test_store_ids,
-                 'Sales': model_predictions}
+#in the Jupyter file somehow replace the index as the ID for the store
+test_store_ids = test_final.index + 1
+submission = {'Id': test_store_ids,
+                 'Sales': bagr_predict}
 submission_df = pd.DataFrame(submission)
-submission_df.to_csv('Rossman_Submission_1.csv',index=False)
+submission_df.to_csv(data_file_path+'Rossman_Submission_1.csv',index=False)
 
+
+
+print(test['Store'].iloc[-1])
 
 
 
