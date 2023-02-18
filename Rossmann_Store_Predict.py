@@ -631,7 +631,7 @@ bag_r = BaggingRegressor(random_state=17, max_features=8, n_estimators=100)
 start_time = time.time()
 bag_r.fit(X_train, y_train)
 # k-fold cross validataion 
-kfold = KFold(n_splits=11, shuffle=True)
+kfold = KFold(n_splits=5, shuffle=True)
 kf_cv_scores = cross_val_score(bag_r, X_train, y_train, cv=kfold )
 print("K-fold CV average score: %.4f" % kf_cv_scores.mean())
 
@@ -672,7 +672,7 @@ test_store_ids = test_final.index + 1
 submission = {'Id': test_store_ids,
                  'Sales': bagr_predict}
 submission_df = pd.DataFrame(submission)
-submission_df.to_csv(data_file_path+'Rossman_Submission_1.csv',index=False)
+submission_df.to_csv(data_file_path+'Rossman_Submission_2.csv',index=False)
 
 
 
